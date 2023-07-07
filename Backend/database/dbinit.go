@@ -1,4 +1,4 @@
-package database
+package db
 
 import (
 	"database/sql"
@@ -9,7 +9,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var db *sql.DB
+var Dsn string
+var Db *sql.DB
 
 func InitDb() {
 	var envs map[string]string
@@ -19,18 +20,19 @@ func InitDb() {
 		log.Fatal(err)
 	}
 
-	dsn := envs["MySQLUsername"] + ":" + envs["MySQLPassword"] + "@tcp(" + envs["MyAddress"] + ":" + envs["MyPort"] + ")/comicbooks"
+	Dsn = envs["MySQLUsername"] + ":" + envs["MySQLPassword"] + "@tcp(" + envs["MyAddress"] + ":" + envs["MyPort"] + ")/comicbooks"
 
-	db, err = sql.Open("mysql", dsn)
+	Db, err = sql.Open("mysql", Dsn)
 
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	err = db.Ping()
+	err = Db.Ping()
 	if err != nil {
 		panic(err.Error())
 	}
 	fmt.Println("Connected to MySQL")
+	return
 }

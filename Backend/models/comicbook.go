@@ -1,8 +1,8 @@
 package models
 
 type Comicbook struct {
-	id       int
-	name     string
-	price    float32
-	category *Category
+	Id       int64     `json:"id"`
+	Name     string    `json:"name"`
+	Price    float32   `json:"price"`
+	Category *Category `json:"category"`
 }

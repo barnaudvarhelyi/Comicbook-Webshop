@@ -1,6 +1,6 @@
 package models
 
 type UserToken struct {
-	userId int
-	token  string
+	UserId int64  `json:"userId"`
+	Token  string `json:"token"`
 }
