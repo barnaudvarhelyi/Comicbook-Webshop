@@ -10,6 +10,7 @@ import (
 
 	"main/controllers"
 	db "main/database"
+	"main/services"
 )
 
 func init() {
@@ -24,7 +25,7 @@ func main() {
 	methods := handlers.AllowedMethods([]string{"GET", "POST", "PATCH", "DELETE", "PUT", "HEAD", "OPTIONS"})
 	origins := handlers.AllowedOrigins([]string{"*"})
 
-	mux.HandleFunc("/api/test", controllers.TestController).Methods("GET")
+	mux.HandleFunc("/api/test", services.AuthMiddleware(controllers.TestController)).Methods("GET")
 
 	mux.HandleFunc("/api/register", controllers.RegisterController).Methods("POST")
 

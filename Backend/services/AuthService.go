@@ -9,11 +9,15 @@ import (
 	m "main/models"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 func Register(w http.ResponseWriter, r *http.Request) {
 
@@ -72,7 +76,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	verHash := string(emailVerPWhash)
 
-	err = InsertIntoDb(user.Username, user.Email, string(hash), verHash, createdAt, timeout)
+	err = insertIntoDb(user.Username, user.Email, string(hash), verHash, createdAt, timeout)
 
 	if err != nil {
 		SendResponse(w, 500, dtos.ResponseDto{Message: err.Error()})
@@ -104,13 +108,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		SendResponse(w, 400, dtos.ResponseDto{Message: "Invalid request body"})
 		return
 	}
-
+	var userId int
 	var hash string
 	var active bool
-	stmt := "SELECT `pswHash`, `active` FROM users WHERE `username` = ?"
+	stmt := "SELECT `id`, `pswHash`, `active` FROM users WHERE `username` = ?"
 	row := db.Db.QueryRow(stmt, login.Username)
 
-	err = row.Scan(&hash, &active)
+	err = row.Scan(&userId, &hash, &active)
 	if err != nil {
 		SendResponse(w, 400, dtos.ResponseDto{Message: "Invalid username or password!"})
 		return
@@ -126,7 +130,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		SendResponse(w, 400, dtos.ResponseDto{Message: "User email not verified yet!"})
 		return
 	}
-
+	session, _ := store.Get(r, "session")
+	session.Values["userID"] = userId
+	session.Save(r, w)
 	SendResponse(w, 200, dtos.ResponseDto{Message: "Successfully loged in!"})
 	return
 }
@@ -153,16 +159,28 @@ func EmailVerHandler(w http.ResponseWriter, r *http.Request) {
 			SendResponse(w, 400, dtos.ResponseDto{Message: "Please try email confirmation link again"})
 			return
 		}
-		// session, _ := store.Get(r, "session")
-		// session.Values["userId"] = u.ID
-		// session.Save(r, w)
+		session, _ := store.Get(r, "session")
+		session.Values["userId"] = u.ID
+		session.Save(r, w)
 		SendResponse(w, 200, dtos.ResponseDto{Message: "Account activated!"})
 		return
 	}
 	SendResponse(w, 401, dtos.ResponseDto{Message: "Unauthorized"})
 }
 
-func InsertIntoDb(username, email, hash, verHash string, createdAt, timeout time.Time) error {
+func AuthMiddleware(hf http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sessions, _ := store.Get(r, "session")
+		_, ok := sessions.Values["userId"]
+		if !ok {
+			SendResponse(w, 401, dtos.ResponseDto{Message: "Authorization required!"})
+			return
+		}
+		hf.ServeHTTP(w, r)
+	}
+}
+
+func insertIntoDb(username, email, hash, verHash string, createdAt, timeout time.Time) error {
 	tx, err := db.Db.Begin()
 	if err != nil {
 		fmt.Println("failed to begin transaction, err", err)
