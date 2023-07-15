@@ -15,7 +15,7 @@ CREATE TABLE users (
 );
 
 INSERT INTO `users` 
-VALUES (1, 'Admin', 'admin@gmail.com', 'Admin', 2023-07-07, 1 , 'asdf');
+VALUES (1, 'Admin', 'admin@gmail.com', 'Admin', "2023-07-14 16:21:10.9142931", 1 , 'asdf');
 
 DROP TABLE IF EXISTS `user_email_ver_hash`;
 CREATE TABLE user_email_ver_hash (
