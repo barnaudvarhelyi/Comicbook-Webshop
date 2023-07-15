@@ -9,7 +9,7 @@ import (
 )
 
 func GetAllUserTest(w http.ResponseWriter, r *http.Request) {
-	row, err := db.Db.Query("SELECT id, name, password, email FROM users")
+	row, err := db.Db.Query("SELECT id, username, pswHash, email FROM users")
 	defer row.Close()
 	if err != nil {
 		fmt.Println(err)

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	db "main/database"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -14,7 +12,6 @@ type User struct {
 	Username  string `json:"name"`
 	Email     string `json:"email"`
 	PswHash   string
-	password  string
 	CreatedAt string `json:"created_at"`
 	Active    bool
 	VerHash   string
@@ -31,7 +28,10 @@ func (u *User) SelectById() error {
 }
 
 func (u *User) GetUserByUsername() error {
-	stmt := "SELECT `id`, `Username`, `Email`, `PswHash`, `CreatedAt`, `Active`, `VerHash` FROM USERS WHERE `Username`=?"
+
+	stmt := "SELECT u.id, u.Username, u.Email, u.PswHash, u.CreatedAt, u.Active, uvh.verHash " +
+		"FROM users AS u INNER JOIN user_email_ver_hash AS uvh ON u.username = uvh.username " +
+		"WHERE u.Username = ?"
 	row := db.Db.QueryRow(stmt, u.Username)
 	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PswHash, &u.CreatedAt, &u.Active, &u.VerHash)
 	if err != nil {
@@ -58,7 +58,7 @@ func (u *User) MakeActive() error {
 
 func (u *User) UpdateUser() error {
 	var updateUserStmt *sql.Stmt
-	updateUserStmt, err := db.Db.Prepare("UPDATE USERS SET `Username`=?, `Email`=?, `PswHash`=?, `Active`=?, `VerHash`=?, `Timeout`=? WHERE `id`=?;")
+	updateUserStmt, err := db.Db.Prepare("UPDATE USERS SET `Username`=?, `Email`=?, `PswHash`=?, `Active`=? WHERE `id`=?;")
 	if err != nil {
 		fmt.Println("error preparring statement to update user in Db with Update, err:", err)
 		return err
@@ -66,7 +66,7 @@ func (u *User) UpdateUser() error {
 	defer updateUserStmt.Close()
 	var result sql.Result
 
-	result, err = updateUserStmt.Exec(u.Username, u.Email, u.PswHash, u.Active, u.VerHash, u.ID)
+	result, err = updateUserStmt.Exec(u.Username, u.Email, u.PswHash, u.Active, u.ID)
 
 	rowsAff, _ := result.RowsAffected()
 
@@ -79,18 +79,4 @@ func (u *User) UpdateUser() error {
 		return errors.New("number of rows affected not equal to one")
 	}
 	return err
-}
-
-func (u *User) VerifyPswd() error {
-	err := bcrypt.CompareHashAndPassword([]byte(u.PswHash), []byte(u.password))
-	if err != nil {
-		err = errors.New("Username and password do not match!")
-		return err
-	}
-
-	if u.Active {
-		err = errors.New("User email not verified yet!")
-		return err
-	}
-	return nil
 }

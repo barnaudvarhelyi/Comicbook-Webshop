@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"time"
 	"unicode"
 
 	db "main/database"
@@ -22,7 +21,7 @@ import (
 type RegisterDto struct {
 	Username     string `json:"username"`
 	Password     string `json:"password"`
-	ConfPassword string `json:"conf_password"`
+	ConfPassword string `json:"confPassword"`
 	Email        string `json:"email"`
 }
 
@@ -137,90 +136,4 @@ func (u *RegisterDto) GenerateEmailVerPswAndHash() (string, []byte, error) {
 	}
 
 	return emailVerPassword, emailVerPswHash, nil
-}
-
-func (u *RegisterDto) InsertIntoDb(username, email, hash, verHash string, createdAt, timeout time.Time) error {
-	tx, err := db.Db.Begin()
-	if err != nil {
-		fmt.Println("failed to begin transaction, err", err)
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			fmt.Println("there was an error rolling back changes, rollbackErr: ", rollbackErr)
-		}
-		return err
-	}
-	defer tx.Rollback()
-
-	var insertStmt *sql.Stmt
-	insertStmt, err = tx.Prepare("INSERT INTO users (`Username`, `Email`, `PswHash`,`CreatedAt`, `Active`, `VerHash`) VALUES (?, ?, ?, ?, ?, ?)")
-
-	if err != nil {
-		fmt.Println("error preparing statement: ", err)
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			fmt.Println("there was an error rolling back changes, rollbackErr: ", rollbackErr)
-			return err
-		}
-	}
-	defer insertStmt.Close()
-
-	var result sql.Result
-	result, err = insertStmt.Exec(username, email, hash, createdAt, 0, verHash)
-
-	aff, err := result.RowsAffected()
-	if aff == 0 {
-		fmt.Println("error at inserting: ", err)
-		return err
-	}
-
-	var tx2 *sql.Tx
-	tx2, err = db.Db.Begin()
-	if err != nil {
-		fmt.Println("failed to begin transaction, err", err)
-		if rollbackErr := tx2.Rollback(); rollbackErr != nil {
-			fmt.Println("there was an error rolling back changes, rollbackErr: ", rollbackErr)
-		}
-		return err
-	}
-	defer tx2.Rollback()
-
-	var insertStmt2 *sql.Stmt
-	insertStmt2, err = tx.Prepare("INSERT INTO user_email_ver_hash (`Username`, `Email`, `VerHash`, `Timeout`) VALUES (?, ?, ?, ?)")
-
-	if err != nil {
-		fmt.Println("error preparing statement: ", err)
-		if rollbackErr := tx2.Rollback(); rollbackErr != nil {
-			fmt.Println("there was an error rolling back changes, rollbackErr: ", rollbackErr)
-			return err
-		}
-	}
-	defer insertStmt2.Close()
-
-	var result2 sql.Result
-	result2, err = insertStmt2.Exec(username, email, verHash, timeout)
-
-	aff, err = result2.RowsAffected()
-	if aff == 0 {
-		fmt.Println("Error at inserting: ", err)
-		return err
-	}
-
-	if err != nil {
-		if rollbackErr := tx2.Rollback(); rollbackErr != nil {
-			fmt.Println("there was an error rolling back changes, rollbackErr: ", rollbackErr)
-			return err
-		}
-		return err
-	}
-	if commitErr := tx.Commit(); commitErr != nil {
-		fmt.Println("error commiting changes, err: ", err)
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			fmt.Println("there was an error rolling back changes, rollbackErr: ", rollbackErr)
-		}
-	}
-	if commitErr := tx2.Commit(); commitErr != nil {
-		fmt.Println("error commiting changes, err: ", err)
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			fmt.Println("there was an error rolling back changes, rollbackErr: ", rollbackErr)
-		}
-	}
-	return nil
 }

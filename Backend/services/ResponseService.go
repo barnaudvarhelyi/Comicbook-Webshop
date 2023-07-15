@@ -13,6 +13,5 @@ func SendResponse(w http.ResponseWriter, statusCode int, i any) {
 	}
 	w.Header().Set("Content-Type", "aplication/json")
 	w.WriteHeader(statusCode)
-
 	w.Write(data)
 }
