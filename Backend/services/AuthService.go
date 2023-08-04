@@ -146,7 +146,7 @@ func EmailVerHandler(w http.ResponseWriter, r *http.Request) {
 	u.Username, _ = vars["username"]
 	linkVerPass, _ = vars["verPass"]
 
-	err := u.GetUserByUsername()
+	err := GetUserByUsername(&u)
 	if err != nil {
 		fmt.Println("error selecting verHash in DB by username, err: ", err)
 		SendResponse(w, 400, dtos.ResponseDto{Message: "Please try link in verification email again"})
@@ -154,7 +154,7 @@ func EmailVerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(u.VerHash), []byte(linkVerPass))
 	if err == nil {
-		err = u.MakeActive()
+		err = MakeActive(&u)
 		if err != nil {
 			SendResponse(w, 400, dtos.ResponseDto{Message: "Please try email confirmation link again"})
 			return

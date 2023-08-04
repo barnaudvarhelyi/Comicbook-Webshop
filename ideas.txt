@@ -1,0 +1,5 @@
+- kosár
+	- rendes adatok
+	- elmentse, kovetkező vásárlásra	
+
+- minta -> képregény -> 1-2 oldal mutatása
