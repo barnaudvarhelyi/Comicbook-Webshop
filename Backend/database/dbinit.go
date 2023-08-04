@@ -298,9 +298,9 @@ func InsertCharacterIntoDb(c m.Character) {
 }
 
 func InsertIssueIntoDb(i m.Issue, vID int) {
-	if isExistsById(i.ID, "i") {
-		return
-	}
+	// if isExistsById(i.ID, "i") {
+	// 	return
+	// }
 
 	stmt, err := Db.Prepare("INSERT INTO `issues` (`id`, `volume_id`, `name`, `issue_number`, `img`, `cover_date`, `date_added`) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
@@ -316,9 +316,9 @@ func InsertIssueIntoDb(i m.Issue, vID int) {
 
 func InsertVolumeIntoDb(v m.Volume) {
 
-	if isExistsById(v.ID, "v") {
-		return
-	}
+	// if isExistsById(v.ID, "v") {
+	// 	return
+	// }
 
 	stmt, err := Db.Prepare("INSERT INTO `volumes` (`id`, `name`, `img`, `desc`, `publisher`) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
