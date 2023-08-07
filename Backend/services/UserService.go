@@ -4,13 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	db "main/database"
 	"main/models"
 )
 
 func SelectById(u *models.User) error {
 	stmt := "SELECT `id`, `Username`, `Email`, `PswHash`, `CreatedAt`, `Active`, `VerHash` FROM USERS WHERE `id`=?"
-	row := db.Db.QueryRow(stmt, &u.ID)
+	row := db.QueryRow(stmt, &u.ID)
 	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PswHash, &u.CreatedAt, &u.Active, &u.VerHash)
 	if err != nil {
 		return err
@@ -23,7 +22,7 @@ func GetUserByUsername(u *models.User) error {
 	stmt := "SELECT u.id, u.Username, u.Email, u.PswHash, u.CreatedAt, u.Active, uvh.verHash " +
 		"FROM users AS u INNER JOIN user_email_ver_hash AS uvh ON u.username = uvh.username " +
 		"WHERE u.Username = ?"
-	row := db.Db.QueryRow(stmt, u.Username)
+	row := db.QueryRow(stmt, u.Username)
 	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PswHash, &u.CreatedAt, &u.Active, &u.VerHash)
 	if err != nil {
 		fmt.Println("getUser() error selecting User, err: ", err)
@@ -33,7 +32,7 @@ func GetUserByUsername(u *models.User) error {
 }
 
 func MakeActive(u *models.User) error {
-	stmt, err := db.Db.Prepare("UPDATE USERS SET `Active`=TRUE WHERE `id`=?")
+	stmt, err := db.Prepare("UPDATE USERS SET `Active`=TRUE WHERE `id`=?")
 	if err != nil {
 		fmt.Println("error preparing statement to update Active")
 		return err
@@ -49,7 +48,7 @@ func MakeActive(u *models.User) error {
 
 func UpdateUser(u *models.User) error {
 	var updateUserStmt *sql.Stmt
-	updateUserStmt, err := db.Db.Prepare("UPDATE USERS SET `Username`=?, `Email`=?, `PswHash`=?, `Active`=? WHERE `id`=?;")
+	updateUserStmt, err := db.Prepare("UPDATE USERS SET `Username`=?, `Email`=?, `PswHash`=?, `Active`=? WHERE `id`=?;")
 	if err != nil {
 		fmt.Println("error preparring statement to update user in Db with Update, err:", err)
 		return err

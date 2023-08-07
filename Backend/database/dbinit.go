@@ -172,6 +172,8 @@ func LoadComicbooksFromApi2() {
 	}
 	fmt.Println("Commicbooks loaded... Saving to database...")
 
+	defer resetResponses()
+
 	for avoidDuplicates("https://comicvine.gamespot.com/api/volumes/", "vs") {
 		fmt.Println("We are on DELAY!")
 		time.Sleep(30 * time.Second)
@@ -194,11 +196,12 @@ func LoadComicbooksFromApi2() {
 				fmt.Println("We are on DELAY! RequestCount: ", requestCount)
 				time.Sleep(30 * time.Second)
 			}
-			InsertCharacterIntoDb(CharacterResponse.Characters[k])
+			InsertCharacterIntoDb(CharacterResponse.Characters[k], VolumeResponse.VolumeResults[i].ID)
 		}
 		fmt.Printf("%d/%d volume saved to database!", i+1, len(VolumesResponse.VolumesResults.VolumesUrl))
 		fmt.Println()
 	}
+
 	fmt.Println("Comicbooks loaded from API!")
 }
 
@@ -276,19 +279,46 @@ func GetBodyFromURL(url string) ([]byte, error) {
 	return body, nil
 }
 
-func InsertCharacterIntoDb(c m.Character) {
+func InsertCharacterIntoDb(c m.Character, volumeId int) {
+	for _, i := range c.IssueCredits.IssueCredit {
+		stmt, err := Db.Prepare("INSERT INTO `issue_characters` (`issue_id`, `character_id`) VALUES (?, ?)")
+		if err != nil {
+			fmt.Println("Error at inserting issue_character, error: ", err.Error())
+		}
+		defer stmt.Close()
+		_, err = stmt.Exec(i.ID, c.ID)
+		if err != nil {
+			if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
+				return
+			}
+			fmt.Println(err.Error())
+		}
+		stmt.Close()
+	}
+	stmt2, err := Db.Prepare("INSERT INTO `volume_characters` (`volume_id`, `character_id`) VALUES (?, ?)")
+	if err != nil {
+		fmt.Println("Error at inserting volume_characters, error: ", err.Error())
+	}
+	defer stmt2.Close()
+	_, err = stmt2.Exec(volumeId, c.ID)
+	if err != nil {
+		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
+			return
+		}
+		fmt.Println(err.Error())
+	}
 
 	if isExistsById(c.ID, "c") {
 		return
 	}
 
-	stmt, err := Db.Prepare("INSERT INTO `characters` (`id`, `name`, `img`) VALUES (?, ?, ?)")
+	stmt3, err := Db.Prepare("INSERT INTO `characters` (`id`, `name`, `img`) VALUES (?, ?, ?)")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	defer stmt.Close()
+	defer stmt3.Close()
 
-	_, err = stmt.Exec(c.ID, c.Name, c.Image.OriginalURL)
+	_, err = stmt3.Exec(c.ID, c.Name, c.Image.OriginalURL)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
 			return
@@ -298,27 +328,30 @@ func InsertCharacterIntoDb(c m.Character) {
 }
 
 func InsertIssueIntoDb(i m.Issue, vID int) {
-	// if isExistsById(i.ID, "i") {
-	// 	return
-	// }
 
-	stmt, err := Db.Prepare("INSERT INTO `issues` (`id`, `volume_id`, `name`, `issue_number`, `img`, `cover_date`, `date_added`) VALUES (?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := Db.Prepare("INSERT INTO `issues` (`id`, `name`, `issue_number`, `img`, `cover_date`, `date_added`) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(i.ID, vID, i.Name, i.IssueNumber, i.Image.OriginalURL, i.CoverDate, i.Date_Added)
+	_, err = stmt.Exec(i.ID, i.Name, i.IssueNumber, i.Image.OriginalURL, i.CoverDate, i.Date_Added)
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+
+	stmt2, err := Db.Prepare("INSERT INTO `volume_issues` (`volume_id`, `issue_id`) VALUES (?, ?)")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	defer stmt2.Close()
+	_, err = stmt2.Exec(vID, i.ID)
+	if err != nil {
+		fmt.Println("Error at inserting volume_issues, error: ", err.Error())
 	}
 }
 
 func InsertVolumeIntoDb(v m.Volume) {
-
-	// if isExistsById(v.ID, "v") {
-	// 	return
-	// }
 
 	stmt, err := Db.Prepare("INSERT INTO `volumes` (`id`, `name`, `img`, `desc`, `publisher`) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
@@ -330,6 +363,13 @@ func InsertVolumeIntoDb(v m.Volume) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
+}
+
+func resetResponses() {
+	VolumesResponse = m.VolumesResponse{}
+	VolumeResponse = m.VolumeResponse{}
+	IssueResponse = m.IssuesResponse{}
+	CharacterResponse = m.CharactersResponse{}
 }
 
 func isExistsById(ID int, s string) bool {

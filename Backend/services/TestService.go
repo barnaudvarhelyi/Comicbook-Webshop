@@ -3,13 +3,12 @@ package services
 import (
 	"fmt"
 	"log"
-	db "main/database"
 	"main/models"
 	"net/http"
 )
 
 func GetAllUserTest(w http.ResponseWriter, r *http.Request) {
-	row, err := db.Db.Query("SELECT id, username, pswHash, email FROM users")
+	row, err := db.Query("SELECT id, username, pswHash, email FROM users")
 	defer row.Close()
 	if err != nil {
 		fmt.Println(err)

@@ -28,8 +28,10 @@ CREATE TABLE user_tokens (
 
 DROP TABLE IF EXISTS `volume_issues`;
 DROP TABLE IF EXISTS `issue_characters`;
+DROP TABLE IF EXISTS `volume_characters`;
 DROP TABLE IF EXISTS `issues`;
 DROP TABLE IF EXISTS `volumes`;
+DROP TABLE IF EXISTS `characters`;
 
 CREATE TABLE `volumes`(
     `id` INT NOT NULL DEFAULT 0,
@@ -40,20 +42,16 @@ CREATE TABLE `volumes`(
     PRIMARY KEY(`id`)
 );
 
-
 CREATE TABLE `issues` (
     `id` INT NOT NULL DEFAULT 0,
-	`volume_id` INT NOT NULL DEFAULT 0,
     `name` VARCHAR(255) NOT NULL DEFAULT "",
     `issue_number` INT NOT NULL DEFAULT 0,
     `img` VARCHAR(255) NOT NULL DEFAULT "",
     `cover_date` VARCHAR(255) NOT NULL DEFAULT "",
     `date_added` VARCHAR(255) NOT NULL DEFAULT "",
-    PRIMARY KEY(`id`),
-    FOREIGN KEY (`volume_id`) REFERENCES `volumes`(`id`)
+    PRIMARY KEY(`id`)
 );
 
-DROP TABLE IF EXISTS `characters`;
 CREATE TABLE `characters` (
     `id` INT NOT NULL DEFAULT 0,
     `name` VARCHAR(255) NOT NULL DEFAULT "",
@@ -63,14 +61,15 @@ CREATE TABLE `characters` (
 
 CREATE TABLE `volume_issues` (
     `volume_id` INT,
-    `issue_id` INT,
-    FOREIGN KEY (`volume_id`) REFERENCES `volumes`(`id`),
-    FOREIGN KEY (`issue_id`) REFERENCES `issues`(`id`)
+    `issue_id` INT
+);
+
+CREATE TABLE `volume_characters` (
+    `volume_id` INT,
+    `character_id` INT
 );
 
 CREATE TABLE `issue_characters` (
     `issue_id` INT,
-    `character_id` INT,
-    FOREIGN KEY (`issue_id`) REFERENCES `issues`(`id`),
-    FOREIGN KEY (`character_id`) REFERENCES `characters`(`id`)
+    `character_id` INT
 );

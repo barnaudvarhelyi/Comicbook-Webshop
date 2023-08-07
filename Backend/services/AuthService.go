@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	db "main/database"
+
 	"main/dtos"
 	m "main/models"
 	"math/rand"
@@ -17,42 +17,44 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+var (
+	store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+)
 
 func Register(w http.ResponseWriter, r *http.Request) {
 
 	var user dtos.RegisterDto
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		SendResponse(w, 400, dtos.ResponseDto{Message: "Invalid request body"})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: "Invalid request body"})
 		return
 	}
 
 	err = user.UsernameExists()
 	if err != nil {
-		SendResponse(w, 400, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 	err = user.EmailExists()
 	if err != nil {
-		SendResponse(w, 400, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 
 	err = user.ValidateUsername()
 	if err != nil {
-		SendResponse(w, 400, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 	err = user.ValidatePassword()
 	if err != nil {
-		SendResponse(w, 400, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 	var statusCode int
 	statusCode, err = user.ValidateEmail()
 	if err != nil {
-		SendResponse(w, statusCode, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, statusCode, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 
@@ -64,13 +66,13 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	var hash []byte
 	hash, err = bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		SendResponse(w, 500, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 500, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 
 	emailVerPassword, emailVerPWhash, err := user.GenerateEmailVerPswAndHash()
 	if err != nil {
-		SendResponse(w, 500, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 500, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 
@@ -79,7 +81,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	err = insertIntoDb(user.Username, user.Email, string(hash), verHash, createdAt, timeout)
 
 	if err != nil {
-		SendResponse(w, 500, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 500, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 
@@ -94,7 +96,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	err = SendEmail(user.Email, subject, HTMLbody)
 
 	if err != nil {
-		SendResponse(w, 500, dtos.ResponseDto{Message: err.Error()})
+		SendResponse(w, 500, dtos.ErrorResponseDto{Error: err.Error()})
 		return
 	}
 	SendResponse(w, 200, dtos.ResponseDto{Message: "200"})
@@ -105,33 +107,33 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var login dtos.LoginDto
 	err := json.NewDecoder(r.Body).Decode(&login)
 	if err != nil || login.Username == "" || login.Password == "" {
-		SendResponse(w, 400, dtos.ResponseDto{Message: "Invalid request body"})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: "Invalid request body"})
 		return
 	}
 	var userId int
 	var hash string
 	var active bool
 	stmt := "SELECT `id`, `pswHash`, `active` FROM users WHERE `username` = ?"
-	row := db.Db.QueryRow(stmt, login.Username)
+	row := db.QueryRow(stmt, login.Username)
 
 	err = row.Scan(&userId, &hash, &active)
 	if err != nil {
-		SendResponse(w, 400, dtos.ResponseDto{Message: "Invalid username or password!"})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: "Invalid username or password!"})
 		return
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(login.Password))
 
 	if err != nil {
-		SendResponse(w, 400, dtos.ResponseDto{Message: "Invalid username or password!"})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: "Invalid username or password!"})
 		return
 	}
 	if !active {
-		SendResponse(w, 400, dtos.ResponseDto{Message: "User email not verified yet!"})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: "User email not verified yet!"})
 		return
 	}
 	session, _ := store.Get(r, "session")
-	session.Values["userID"] = userId
+	session.Values["userId"] = userId
 	session.Save(r, w)
 	SendResponse(w, 200, dtos.ResponseDto{Message: "Successfully loged in!"})
 	return
@@ -149,14 +151,14 @@ func EmailVerHandler(w http.ResponseWriter, r *http.Request) {
 	err := GetUserByUsername(&u)
 	if err != nil {
 		fmt.Println("error selecting verHash in DB by username, err: ", err)
-		SendResponse(w, 400, dtos.ResponseDto{Message: "Please try link in verification email again"})
+		SendResponse(w, 400, dtos.ErrorResponseDto{Error: "Please try link in verification email again"})
 		return
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(u.VerHash), []byte(linkVerPass))
 	if err == nil {
 		err = MakeActive(&u)
 		if err != nil {
-			SendResponse(w, 400, dtos.ResponseDto{Message: "Please try email confirmation link again"})
+			SendResponse(w, 400, dtos.ErrorResponseDto{Error: "Please try email confirmation link again"})
 			return
 		}
 		session, _ := store.Get(r, "session")
@@ -165,7 +167,7 @@ func EmailVerHandler(w http.ResponseWriter, r *http.Request) {
 		SendResponse(w, 200, dtos.ResponseDto{Message: "Account activated!"})
 		return
 	}
-	SendResponse(w, 401, dtos.ResponseDto{Message: "Unauthorized"})
+	SendResponse(w, 401, dtos.ErrorResponseDto{Error: "Unauthorized"})
 }
 
 func AuthMiddleware(hf http.HandlerFunc) http.HandlerFunc {
@@ -173,7 +175,7 @@ func AuthMiddleware(hf http.HandlerFunc) http.HandlerFunc {
 		sessions, _ := store.Get(r, "session")
 		_, ok := sessions.Values["userId"]
 		if !ok {
-			SendResponse(w, 401, dtos.ResponseDto{Message: "Authorization required!"})
+			SendResponse(w, 401, dtos.ErrorResponseDto{Error: "Authorization required!"})
 			return
 		}
 		hf.ServeHTTP(w, r)
@@ -181,7 +183,7 @@ func AuthMiddleware(hf http.HandlerFunc) http.HandlerFunc {
 }
 
 func insertIntoDb(username, email, hash, verHash string, createdAt, timeout time.Time) error {
-	tx, err := db.Db.Begin()
+	tx, err := db.Begin()
 	if err != nil {
 		fmt.Println("failed to begin transaction, err", err)
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -213,7 +215,7 @@ func insertIntoDb(username, email, hash, verHash string, createdAt, timeout time
 	}
 
 	var tx2 *sql.Tx
-	tx2, err = db.Db.Begin()
+	tx2, err = db.Begin()
 	if err != nil {
 		fmt.Println("failed to begin transaction, err", err)
 		if rollbackErr := tx2.Rollback(); rollbackErr != nil {
